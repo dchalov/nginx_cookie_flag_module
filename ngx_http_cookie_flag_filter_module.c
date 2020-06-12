@@ -12,6 +12,8 @@ typedef struct {
     ngx_flag_t samesite;
     ngx_flag_t samesite_lax;
     ngx_flag_t samesite_strict;
+    ngx_flag_t variable_present;
+    ngx_int_t variable_index;
 } ngx_http_cookie_t;
 
 typedef struct {
@@ -165,6 +167,8 @@ ngx_http_cookie_flag_filter_cmd(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     cookie->samesite = 0;
     cookie->samesite_lax = 0;
     cookie->samesite_strict = 0;
+    cookie->variable_present = 0;
+    cookie->variable_index = 0;
 
     // normalize and check 2nd and 3rd parameters
     for (i = 2; i < cf->args->nelts; i++) {
@@ -178,6 +182,15 @@ ngx_http_cookie_flag_filter_cmd(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             cookie->samesite_lax = 1;
         } else if (ngx_strncasecmp(value[i].data, (u_char *) "samesite=strict", 15) == 0 && value[i].len == 15) {
             cookie->samesite_strict = 1;
+        } else if (ngx_strncasecmp(value[i].data, (u_char *) "$", 1) == 0 && value[i].len > 1) {
+			ngx_str_t variable_name;
+			variable_name.data = value[i].data + 1;
+			variable_name.len = value[i].len - 1;
+            cookie->variable_present = 1;
+			cookie->variable_index = ngx_http_get_variable_index(cf, &variable_name);
+			if (cookie->variable_index == NGX_ERROR) {
+				return NGX_CONF_ERROR;
+			}
         } else {
             ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "The parameter value \"%V\" is incorrect", &value[i]);
             return NGX_CONF_ERROR;
@@ -285,6 +298,27 @@ ngx_http_cookie_flag_filter_append(ngx_http_request_t *r, ngx_http_cookie_t *coo
         tmp.len = ngx_sprintf(tmp.data, "%V; SameSite=Strict", &header->value) - tmp.data;
         header->value.data = tmp.data;
         header->value.len = tmp.len;
+    }
+
+    if (cookie->variable_present == 1) {
+		ngx_str_t variable_value;
+
+		ngx_http_variable_value_t *pvar = ngx_http_get_indexed_variable(r, cookie->variable_index);
+		variable_value.data = pvar->data;
+		variable_value.len = pvar->len;
+
+		variable_value = variable_value;
+
+		if (pvar != NULL) {
+    	    tmp.data = ngx_pnalloc(r->pool, header->value.len + pvar->len);
+    	    if (tmp.data == NULL) {
+				return NGX_ERROR;
+    	    }
+    	    tmp.len = ngx_sprintf(tmp.data, "%V", &header->value) - tmp.data;
+			tmp.len = ngx_sprintf(tmp.data + tmp.len, "%V", &variable_value) - tmp.data;
+    	    header->value.data = tmp.data;
+    	    header->value.len = tmp.len;
+		}
     }
 
     return NGX_OK;
