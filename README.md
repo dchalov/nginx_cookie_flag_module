@@ -38,6 +38,7 @@ location / {
     set_cookie_flag * HttpOnly;
     set_cookie_flag SessionID SameSite=Lax secure;
     set_cookie_flag SiteToken SameSite=Strict;
+    set_cookie_flag SiteToken $variable;
 }
 ```
 
@@ -45,6 +46,7 @@ location / {
 This module for Nginx allows to set the flags "**HttpOnly**", "**secure**" and "**SameSite**" for cookies in the "*Set-Cookie*" upstream response headers.
 The register of letters for the flags doesn't matter as it will be converted to the correct value. The order of cookie declaration among multiple directives doesn't matter too.
 It is possible to set a default value using symbol "*". In this case flags will be added to the all cookies if no other value for them is overriden.
+NEW: possibility to add cookie flag as variable value. LIMITATION: Defining cookie name in variable not supported. Only one variable per directive.
 
 ## Directives
 
@@ -52,7 +54,7 @@ It is possible to set a default value using symbol "*". In this case flags will 
 
 -| -
 --- | ---
-**Syntax**  | **set_cookie_flag** \<cookie_name\|*\> [HttpOnly] [secure] [SameSite\|SameSite=[Lax\|Strict]];
+**Syntax**  | **set_cookie_flag** \<cookie_name\|*\> [HttpOnly] [secure] [SameSite\|SameSite=[Lax\|Strict]] [$<variable_name>];
 **Default** | -
 **Context** | server, location
 
